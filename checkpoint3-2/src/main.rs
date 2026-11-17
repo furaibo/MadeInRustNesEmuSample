@@ -19,11 +19,20 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
 use std::collections::HashMap;
 
+use clap::Parser;
+use std::path::PathBuf;
+
 #[macro_use]
 extern crate lazy_static;
 
 #[macro_use]
 extern crate bitflags;
+
+#[derive(Parser, Debug)]
+struct Args {
+    #[arg(short, long)]
+    file: Option<PathBuf>,
+}
 
 fn main() {
     // init sdl2
@@ -44,11 +53,13 @@ fn main() {
         .create_texture_target(PixelFormatEnum::RGB24, 256, 240)
         .unwrap();
 
-    //load the game
-    //let bytes: Vec<u8> = std::fs::read("pacman.nes").unwrap();
-    let bytes: Vec<u8> = std::fs::read("rom/super_mario_bros.nes").unwrap();
-    //let bytes: Vec<u8> = std::fs::read("rom/helloworld.nes").unwrap();
-    //let bytes: Vec<u8> = std::fs::read("rom/color_test.nes").unwrap();
+    // get file path
+    let args = Args::parse();
+    let path = args.file.unwrap_or_else(|| PathBuf::from("rom/test/color_test.nes"));
+
+    // load the game
+    //let bytes: Vec<u8> = std::fs::read("rom/pacman.nes").unwrap();
+    let bytes: Vec<u8> = std::fs::read(path).unwrap();
     let rom = Rom::new(&bytes).unwrap();
 
     let mut frame = Frame::new();
@@ -62,7 +73,6 @@ fn main() {
     key_map.insert(Keycode::Return, joypad::JoypadButton::START);
     key_map.insert(Keycode::A, joypad::JoypadButton::BUTTON_A);
     key_map.insert(Keycode::S, joypad::JoypadButton::BUTTON_B);
-
 
     // run the game cycle
     let bus = Bus::new(rom, move |ppu: &NesPPU, joypad: &mut joypad::Joypad| {
@@ -98,11 +108,7 @@ fn main() {
     });
 
     let mut cpu = CPU::new(bus);
+
     cpu.reset();
     cpu.run();
-    /*
-    cpu.run_with_callback(|cpu| {
-        println!("{}", trace(cpu));
-    });
-    */
 }

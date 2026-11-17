@@ -19,7 +19,8 @@ pub struct NesPPU {
 
     pub oam_addr: u8,
     pub oam_data: [u8; 256],
-    pub palette_table: [u8; 32],
+    //pub palette_table: [u8; 32],
+    pub palette_table: [u8; 64],
 
     internal_data_buf: u8,
 
@@ -59,7 +60,8 @@ impl NesPPU {
             addr: AddrRegister::new(),
             vram: [0; 2048],
             oam_data: [0; 64 * 4],
-            palette_table: [0; 32],
+            //palette_table: [0; 32],
+            palette_table: [0; 64],
             internal_data_buf: 0,
 
             cycles: 0,
