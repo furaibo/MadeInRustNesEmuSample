@@ -1,14 +1,17 @@
 use crate::apu::{SAMPLE_RATE, NES_CPU_CLOCK, MASTER_VOLUME};
 use crate::apu::LENGTH_COUNTER_TABLE;
 
-
 #[derive(Debug, Clone, Copy)]
 pub struct Ch3Register {
-    // レジスタからの設定値
-    length: u8,                 // $4008
-    linear_count_halt: bool,    // $4008
-    frequency: u16,             // $400A + $400B
-    key_off_count: u8,          // $400B (長さテーブルへのIndex)
+    // $4008
+    length: u8,
+    linear_count_halt: bool,    // リニアカウンタ減算無効フラグ
+
+    // $400A + $400B
+    frequency: u16,
+
+    // $400B (長さテーブルへのIndex)
+    key_off_count: u8,
 
     // 内部で変化するカウンター類
     pub linear_counter: u8,     // リニアカウンタ (詳細な長さ制御)
@@ -98,7 +101,7 @@ impl Ch3Register {
         // 次のサンプルのために位相を進める
         self.phase = (self.phase + self.hz() / SAMPLE_RATE) % 1.0;
 
-        // そのまま出力すると、音が大きすぎる場合があるので、MASTER_VOLUMEで調整。
+        // 出力レベル
         return x * MASTER_VOLUME;
     }
 

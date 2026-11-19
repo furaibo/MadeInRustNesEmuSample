@@ -91,6 +91,7 @@ impl Mem for CPU<'_> {
         self.bus.mem_write_u16(addr, data)
     }
 }
+
 fn page_cross(addr1: u16, addr2: u16) -> bool {
     addr1 & 0xFF00 != addr2 & 0xFF00
 }
@@ -228,27 +229,6 @@ impl<'a> CPU<'a> {
         self.update_zero_and_negative_flags(self.register_y);
     }
 
-    fn sbc(&mut self, mode: &AddressingMode) {
-        let (addr, page_cross) = self.get_operand_address(&mode);
-        let data = self.mem_read(addr);
-        self.add_to_register_a(((data as i8).wrapping_neg().wrapping_sub(1)) as u8);
-
-        if page_cross {
-            self.bus.tick(1);
-        }
-    }
-
-    fn adc(&mut self, mode: &AddressingMode) {
-        let (addr, page_cross) = self.get_operand_address(mode);
-        let value = self.mem_read(addr);
-        self.add_to_register_a(value);
-
-        if page_cross {
-            self.bus.tick(1);
-        }
-    }
-
-
     fn lda(&mut self, mode: &AddressingMode) {
         let (addr, page_cross) = self.get_operand_address(&mode);
         let value = self.mem_read(addr);
@@ -298,7 +278,6 @@ impl<'a> CPU<'a> {
         self.update_zero_and_negative_flags(self.register_x);
     }
 
-
     fn tay(&mut self) {
         self.register_y = self.register_a;
         self.update_zero_and_negative_flags(self.register_y);
@@ -323,9 +302,24 @@ impl<'a> CPU<'a> {
         self.update_zero_and_negative_flags(self.register_a);
     }
 
-    fn set_register_a(&mut self, value: u8) {
-        self.register_a = value;
-        self.update_zero_and_negative_flags(self.register_a);
+    fn sbc(&mut self, mode: &AddressingMode) {
+        let (addr, page_cross) = self.get_operand_address(&mode);
+        let data = self.mem_read(addr);
+        self.add_to_register_a(((data as i8).wrapping_neg().wrapping_sub(1)) as u8);
+
+        if page_cross {
+            self.bus.tick(1);
+        }
+    }
+
+    fn adc(&mut self, mode: &AddressingMode) {
+        let (addr, page_cross) = self.get_operand_address(mode);
+        let value = self.mem_read(addr);
+        self.add_to_register_a(value);
+
+        if page_cross {
+            self.bus.tick(1);
+        }
     }
 
     fn and(&mut self, mode: &AddressingMode) {
@@ -356,7 +350,6 @@ impl<'a> CPU<'a> {
             self.bus.tick(1);
         }
     }
-
 
     fn update_zero_and_negative_flags(&mut self, result: u8) {
         if result == 0 {
@@ -411,6 +404,11 @@ impl<'a> CPU<'a> {
 
     fn clear_carry_flag(&mut self) {
         self.status.remove(CpuFlags::CARRY)
+    }
+
+    fn set_register_a(&mut self, value: u8) {
+        self.register_a = value;
+        self.update_zero_and_negative_flags(self.register_a);
     }
 
     /// note: ignoring decimal mode

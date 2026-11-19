@@ -11,4 +11,5 @@ bitflags = "2.13.1"
 lazy_static = "1.5.0"
 rand = "0.7.3"
 sdl2 = { version = "0.38.0", features = ["bundled", "static-link"] }
+clap = { version = "4", features = ["derive"] }
 

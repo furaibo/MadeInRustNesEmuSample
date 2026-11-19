@@ -11,14 +11,20 @@ use registers::ch5_register::Ch5Register;
 pub mod registers;
 
 // 定数定義
-const SAMPLE_RATE: f32 = 44100.0;
-const NES_CPU_CLOCK: f32 = 1_789_772.5;
-const MASTER_VOLUME: f32 = 0.4; // 音量調整用
+// 定数定義
+const SAMPLE_RATE: f32 = 44100.0;        // サンプルレート周波数
+const NES_CPU_CLOCK: f32 = 1_789_772.5;  // ファミコンのクロック数(Hz)
+const MASTER_VOLUME: f32 = 0.4;          // 音量調整用(※この数値は各々で調整可能です)
 
+// 長さカウンタテーブル(後ほど1-4chで共通して利用します)
 static LENGTH_COUNTER_TABLE: [u8; 32] = [
-    0x0A, 0xFE, 0x14, 0x02, 0x28, 0x04, 0x50, 0x06, 0xA0, 0x08, 0x3C, 0x0A, 0x0E, 0x0C, 0x1A, 0x0E,
-    0x0C, 0x10, 0x18, 0x12, 0x30, 0x14, 0x60, 0x16, 0xC0, 0x18, 0x48, 0x1A, 0x10, 0x1C, 0x20, 0x1E,
+    0x0A, 0xFE, 0x14, 0x02, 0x28, 0x04, 0x50, 0x06, 0xA0, 0x08,
+    0x3C, 0x0A, 0x0E, 0x0C, 0x1A, 0x0E, 0x0C, 0x10, 0x18, 0x12,
+    0x30, 0x14, 0x60, 0x16, 0xC0, 0x18, 0x48, 0x1A, 0x10, 0x1C,
+    0x20, 0x1E,
 ];
+
+// 初期化関数
 
 // 初期化関数
 fn init_channel(sdl_context: &sdl2::Sdl) -> AudioQueue<f32> {
@@ -26,13 +32,14 @@ fn init_channel(sdl_context: &sdl2::Sdl) -> AudioQueue<f32> {
 
     let desired_spec = AudioSpecDesired {
         freq: Some(SAMPLE_RATE as i32), // 44.1kHz
-        channels: Some(1),              // モノラル(ファミコンはモノラルです。)
-        samples: Some(256),             // バッファサイズ (適当な大きさ)
+        channels: Some(1),              // モノラル(ファミコンはモノラルのため)
+        samples: Some(4410),            // バッファサイズ(適当な大きさを指定)
     };
 
     // デバイスを開く
     let device = audio_subsystem.open_queue(None, &desired_spec).unwrap();
-    // 再生開始（これを忘れると音が出ません）
+
+    // 再生処理開始(これを忘れると音が出ないため注意)
     device.resume();
 
     return device;
@@ -70,7 +77,7 @@ impl NesAPU {
     }
 
     pub fn write_frame_sequencer(&mut self, data: u8) {
-        // フレームシーケンサーに書き込まれると、ステップ数が初期化されます。
+        // フレームシーケンサーに書き込まれると、ステップ数が初期化される
         self.frame_sequencer.update(data);
         self.cycles = 0;
         self.counter = 0;
@@ -79,24 +86,49 @@ impl NesAPU {
     // $4015 Write
     pub fn write_status(&mut self, data: u8) {
         self.status.update(data);
-        // DMCの実装時に追加処理が必要になります。
+
+        // 1-4cが無効化されたら長さカウンタを0にする
+        if data & 0x01 == 0 { self.ch1_register.length_counter = 0; }
+        if data & 0x02 == 0 { self.ch2_register.length_counter = 0; }
+        if data & 0x04 == 0 { self.ch3_register.length_counter = 0; }
+        if data & 0x08 == 0 { self.ch4_register.length_counter = 0; }
+
+        // ch5(DMC)
+        if data & 0x10 == 0 {
+            // 停止
+            self.ch5_register.bit_remaining = 0;
+        } else if self.ch5_register.bit_remaining == 0 {
+            // 再生中でなければサンプルを先頭から再開
+            self.ch5_register.reload_sample_bytes();
+        }
+
+        // 書き込みでDMCのIRQフラグはクリア
+        self.ch5_register.irq_flag = false;
     }
 
     // $4015 Read
     pub fn read_status(&mut self) -> u8 {
         let mut res = self.status.bits();
 
-        // Bit 0-3: 長さカウンタが残っているか？
+        // bit0-3: 1-4chの長さカウンタが残っているか(演奏中かどうかの判定)
+        res |= (self.ch1_register.length_counter != 0) as u8;
+        res |= ((self.ch2_register.length_counter != 0) as u8) << 1;
+        res |= ((self.ch3_register.length_counter != 0) as u8) << 2;
+        res |= ((self.ch4_register.length_counter != 0) as u8) << 3;
 
-        // あとでch3_register本体を実装しますが、先に書いちゃいます。
-        res = res
-            | (if self.ch3_register.length_counter == 0 {
-            0
-        } else {
-            1
-        } << 2);
+        // bit4: 5ch(DMC)の残りバイト数
+        res |= ((self.ch5_register.bit_remaining != 0) as u8) << 4;
 
-        // 重要な副作用: フレームIRQフラグをクリアする
+        // bit6：フレーム IRQ（読んだらクリア）
+        if self.status.contains(StatusRegister::ENABLE_FRAME_IRQ) {
+            res |= 0x40;
+        }
+        // bit7：DMC IRQ（読んでもクリアしない）
+        if self.ch5_register.irq_flag {
+            res |= 0x80;
+        }
+
+        // 副作用: フレームIRQフラグをクリアする
         self.status.remove(StatusRegister::ENABLE_FRAME_IRQ);
 
         res
@@ -107,6 +139,7 @@ impl NesAPU {
         self.status.contains(StatusRegister::ENABLE_FRAME_IRQ)
     }
 
+    // ティック処理の実行
     pub fn tick(&mut self, cycles: u8, prg_rom: &[u8]) {
         self.cycles += cycles as usize;
 
@@ -184,6 +217,7 @@ impl NesAPU {
         for sample in buffer.iter_mut() {
             *sample = 0.0;
 
+            // 全ての有効なチャンネルの出力を加算(ミキシング処理)
             if self.status.contains(StatusRegister::ENABLE_1CH) {
                 *sample += self.ch1_register.next();
             }

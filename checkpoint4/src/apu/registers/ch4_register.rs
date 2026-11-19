@@ -2,7 +2,7 @@ use crate::apu::{SAMPLE_RATE, NES_CPU_CLOCK, MASTER_VOLUME};
 use crate::apu::LENGTH_COUNTER_TABLE;
 
 // ノイズ周波数テーブル (NTSC)
-// インデックスに対応する「タイマー周期（CPUサイクル数）」を保持します。
+// インデックスに対応する「タイマー周期（CPUサイクル数）」を保持
 static NOISE_TABLE: [u16; 16] = [
     4, 8, 16, 32, 64, 96, 128, 160, 202, 254,
     380, 508, 762, 1016, 2034, 4068,
@@ -10,8 +10,8 @@ static NOISE_TABLE: [u16; 16] = [
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum NoiseKind {
-    Long,  // 通常のホワイトノイズ (ドラム、爆発音など)
-    Short, // 金属的な周期ノイズ (シンバル、ロボット音など)
+    Long,  // ロングモード
+    Short, // ショートモード
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -28,10 +28,10 @@ pub struct Ch4Register {
     // $400F
     key_off_count: u8,
 
-    // background status
+    // 内部計算用
     phase: f32,
-    random: u16, // ★最重要: 乱数生成用シフトレジスタ
-    length_counter: u8,
+    random: u16, // 重要: 乱数生成用シフトレジスタ
+    pub length_counter: u8,
     envelope_counter: u8,
     envelope_division_period: u8,
 }
@@ -46,7 +46,7 @@ impl Ch4Register {
             kind: NoiseKind::Long,
             key_off_count: 0,
             phase: 0.0,
-            random: 1, // ★重要: 0になるとビット演算の結果がずっと0になるため、非0で初期化
+            random: 1,   // 注意: 非ゼロ値で初期化すること
             length_counter: 0,
             envelope_counter: 0x0F,
             envelope_division_period: 1,
@@ -58,7 +58,7 @@ impl Ch4Register {
             0x400C => {
                 self.volume = value & 0x0F;
                 self.envelope_flag = (value & 0x10) == 0;
-                self.key_off_counter_flag = (value & 0x20) == 0;
+                self.key_off_counter_flag = (value & 0x20) != 0;
             }
             0x400E => {
                 self.frequency = value & 0x0F;
@@ -73,7 +73,7 @@ impl Ch4Register {
 
                 // 書き込み時のリセット処理
                 self.phase = 0.0;
-                self.random = 1; // 重要: ここでリセットしないと音が変わらないことがある
+                self.random = 1; // ここでリセットしないと音が変わらないことがある
                 self.envelope_counter = 0x0F;
                 self.envelope_division_period = self.volume + 1;
             }
@@ -81,7 +81,7 @@ impl Ch4Register {
         }
     }
 
-    // テーブルを使ってHzに変換
+    // テーブルを使って周波数(Hz)に変換
     fn hz(&self) -> f32 {
         NES_CPU_CLOCK / NOISE_TABLE[self.frequency as usize] as f32
     }
@@ -93,7 +93,7 @@ impl Ch4Register {
         self.random = (self.random >> 1) | (bit1 ^ bit2) << 14;
     }
 
-    // 音量計算 (1ch/2chと同じ)
+    // 音量計算 (1ch/2chと同様)
     fn volume(&self) -> f32 {
         (if self.envelope_flag {
             self.envelope_counter
@@ -105,7 +105,7 @@ impl Ch4Register {
 
     pub fn next(&mut self) -> f32 {
         // 現在の乱数の0ビット目を見て出力を決定
-        // (0なら出力、1なら無音)
+        // 0なら出力、1なら無音
         let mut x =
             if (self.random & 0x01) != 0 { 0.0 } else { 1.0 } * self.volume() * MASTER_VOLUME;
 
@@ -116,11 +116,10 @@ impl Ch4Register {
         let last_phase = self.phase;
 
         // 1サンプルで進むべき位相の量を計算
-        // 高音の場合、この値は 1.0 を大きく超える (例: 10.14 とか)
+        // 高音の場合、この値は 1.0 を大きく超える
         let mut add = self.hz() / SAMPLE_RATE;
         self.phase = (self.phase + add) % 1.0;
 
-        // ★ここが重要！
         // add が 1.0 を超えている場合、その回数分だけ乱数生成器(next_random)を回す
         // これにより、サンプリングレート間の乱数の変化をエミュレートする
         loop {
@@ -135,12 +134,13 @@ impl Ch4Register {
         if self.phase < last_phase {
             self.next_random();
         }
+
         return x;
     }
 
-    // 長さカウンタ更新 (共通)
+    // 長さカウンタ更新(共通)
     pub fn tick_length_counter(&mut self) {
-        if !self.key_off_counter_flag {
+        if self.key_off_counter_flag {
             return;
         }
         if self.length_counter > 0 {
@@ -148,7 +148,7 @@ impl Ch4Register {
         }
     }
 
-    // エンベロープ更新 (共通)
+    // エンベロープ更新(共通)
     pub fn tick_envelope(&mut self) {
         self.envelope_division_period -= 1;
         if self.envelope_division_period != 0 {
@@ -158,7 +158,7 @@ impl Ch4Register {
         if self.envelope_counter != 0 {
             self.envelope_counter -= 1;
         } else if self.envelope_counter == 0 {
-            if self.key_off_counter_flag {
+            if !self.key_off_counter_flag {
                 self.envelope_counter = 0x0F;
                 self.envelope_division_period = self.volume + 1;
             }

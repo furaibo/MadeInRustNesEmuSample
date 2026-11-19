@@ -21,11 +21,20 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
 use std::collections::HashMap;
 
+use clap::Parser;
+use std::path::PathBuf;
+
 #[macro_use]
 extern crate lazy_static;
 
 #[macro_use]
 extern crate bitflags;
+
+#[derive(Parser, Debug)]
+struct Args {
+    #[arg(short, long)]
+    file: Option<PathBuf>,
+}
 
 fn main() {
     // init sdl2
@@ -46,11 +55,13 @@ fn main() {
         .create_texture_target(PixelFormatEnum::RGB24, 256, 240)
         .unwrap();
 
-    //load the game
+    // get file path
+    let args = Args::parse();
+    let path = args.file.unwrap_or_else(|| PathBuf::from("rom/test/color_test.nes"));
+
+    // load the game
     //let bytes: Vec<u8> = std::fs::read("rom/pacman.nes").unwrap();
-    let bytes: Vec<u8> = std::fs::read("rom/super_mario_bros.nes").unwrap();
-    //let bytes: Vec<u8> = std::fs::read("rom/helloworld.nes").unwrap();
-    //let bytes: Vec<u8> = std::fs::read("rom/color_test.nes").unwrap();
+    let bytes: Vec<u8> = std::fs::read(path).unwrap();
     let rom = Rom::new(&bytes).unwrap();
 
     let mut frame = Frame::new();

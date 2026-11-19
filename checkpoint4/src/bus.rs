@@ -139,7 +139,7 @@ impl Mem for Bus<'_> {
             0x8000..=0xFFFF => self.read_prg_rom(addr),
 
             _ => {
-                // println!("Ignoring mem access at {:x}", addr);
+                println!("Ignoring mem access at {:x}", addr);
                 0
             }
         }
@@ -223,6 +223,10 @@ impl Mem for Bus<'_> {
                 // todo: handle this eventually
                 // let add_cycles: u16 = if self.cycles % 2 == 1 { 514 } else { 513 };
                 // self.tick(add_cycles); //todo this will cause weird effects as PPU will have 513/514 * 3 ticks
+            }
+
+            0x6000..=0x60FF => {
+                println!("addr: {:#x}, data: {:#x}", addr, data);
             }
 
             0x8000..=0xFFFF => panic!("Attempt to write to Cartridge ROM space: {:x}", addr),

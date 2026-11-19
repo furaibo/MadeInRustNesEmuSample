@@ -7,6 +7,7 @@ const DMC_RATE_TABLE: [u16; 16] = [
     190, 160, 142, 128, 106,  84,  72,  54
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Ch5Register {
     // $4010
     irq_enabled: bool,
@@ -28,7 +29,7 @@ pub struct Ch5Register {
     data: u8,
     rate_counter: u16,
     sample_addr: u16,
-    bit_remaining: u32,
+    pub bit_remaining: u32,
 }
 
 impl Ch5Register {
@@ -39,9 +40,11 @@ impl Ch5Register {
             loop_flag: false,
             rate_index: 0,
             init_rate_counter: 0,
+
             output_level: 0,
             start_addr: 0,
             byte_count: 0,
+
             rate_counter: 0,
             data: 0,
             sample_addr: 0xC000,
@@ -67,20 +70,22 @@ impl Ch5Register {
             0x4013 => {
                 self.byte_count = value;
                 if self.bit_remaining == 0 {
-                    self.reload_bit();
+                    self.reload_sample_bytes();
                 }
             }
             _ => panic!("can't be"),
         }
     }
 
-    fn reload_bit(&mut self) {
+    // 音源再生のための初期化処理(ループ再生時にも呼び出す)
+    pub fn reload_sample_bytes(&mut self) {
         self.rate_counter = self.init_rate_counter;
         self.sample_addr = self.start_addr as u16 * 0x40 + 0xC000;
         self.bit_remaining = (self.byte_count as u32 * 16 + 1) * 8;
         self.data = 0;
     }
 
+    // PRG ROMデータを読み込む(5ch専用)
     fn read_prg_rom(&self, prg_rom: &[u8], mut addr: u16) -> u8 {
         addr -= 0x8000;
         if prg_rom.len() == 0x4000 && addr >= 0x4000 {
@@ -92,6 +97,7 @@ impl Ch5Register {
     pub fn next(&mut self, cycles: u8, prg_rom: &[u8]) -> f32 {
         let mut x = 0.0;
 
+        // 指定のサイクル数を待って音の再生
         if self.rate_counter > cycles as u16 {
             self.rate_counter -= cycles as u16;
         } else {
@@ -124,9 +130,9 @@ impl Ch5Register {
                 self.bit_remaining -= 1;
 
             } else {
-                // 再生終了時、またはループ時
+                // 再生終了、またはループ時の処理
                 if self.loop_flag {
-                    self.reload_bit();
+                    self.reload_sample_bytes();
                 } else {
                     if self.irq_enabled {
                         // Note: IRQ発生フラグの有効化
@@ -136,7 +142,11 @@ impl Ch5Register {
             }
         }
 
-        // 出力レベルの適用
+        // 出力レベルの決定
+        // Note:
+        //   64を引いて64で割ることで波形の中央を0.0に補正し、
+        //   他の矩形波や三角波とミックスした際に
+        //   直流成分(ポップノイズの原因)が乗らない綺麗な波形に整える
         x = ((self.output_level as f32 - 64.0) / 64.0) * MASTER_VOLUME;
 
         return x;
