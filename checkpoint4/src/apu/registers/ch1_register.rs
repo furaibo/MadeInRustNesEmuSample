@@ -3,22 +3,25 @@ use crate::apu::LENGTH_COUNTER_TABLE;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Ch1Register {
+    // $4000
     volume: u8,
     envelope_flag: bool,
     key_off_counter_flag: bool,
     duty: u8,
 
+    // $4001
     sweep_change_amount: u8,
     sweep_direction: u8,
     sweep_timer_count: u8,
     sweep_enabled: bool,
 
+    // $4002 + $4003
     frequency: u16,
-
     key_off_count: u8,
 
+    // 内部計算用
     phase: f32,
-    length_counter: u8,
+    pub length_counter: u8,
     envelope_counter: u8,
     envelope_division_period: u8,
     sweep_counter: u8,
@@ -34,23 +37,19 @@ pub const DUTY_TABLE: [[u8; 8]; 4] = [
 impl Ch1Register {
     pub fn new() -> Self {
         Ch1Register {
-            // $4000
             volume: 0,
             envelope_flag: false,
             key_off_counter_flag: false,
             duty: 0,
 
-            // $4001
             sweep_change_amount: 0,
             sweep_direction: 0,
             sweep_timer_count: 0,
             sweep_enabled: false,
 
-            // $4002 / $4003
             frequency: 0,
             key_off_count: 0,
 
-            // 内部計算用
             phase: 0.0,
             length_counter: 0,
             envelope_counter: 0x0F,
@@ -81,7 +80,7 @@ impl Ch1Register {
                 self.key_off_count = (value & 0xF8) >> 3;
                 self.length_counter = LENGTH_COUNTER_TABLE[self.key_off_count as usize];
 
-                // reset
+                // リセット処理
                 self.envelope_counter = 0x0F;
                 self.envelope_division_period = self.volume + 1;
                 self.sweep_counter = 0;

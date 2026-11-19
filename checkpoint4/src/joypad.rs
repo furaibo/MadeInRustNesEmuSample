@@ -2,14 +2,14 @@ bitflags! {
     // https://www.nesdev.org/wiki/Controller_reading_code
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub struct JoypadButton: u8 {
-        const RIGHT             = 0b10000000;
-        const LEFT              = 0b01000000;
-        const DOWN              = 0b00100000;
-        const UP                = 0b00010000;
-        const START             = 0b00001000;
-        const SELECT            = 0b00000100;
-        const BUTTON_B          = 0b00000010;
-        const BUTTON_A          = 0b00000001;
+        const BUTTON_A  = 0b00000001;  // Aボタン
+        const BUTTON_B  = 0b00000010;  // Bボタン
+        const SELECT    = 0b00000100;  // セレクトボタン
+        const START     = 0b00001000;  // スタートボタン
+        const UP        = 0b00010000;  // 十字キー上
+        const DOWN      = 0b00100000;  // 十字キー下
+        const LEFT      = 0b01000000;  // 十字キー左
+        const RIGHT     = 0b10000000;  // 十字キー右
     }
 }
 
