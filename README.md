@@ -50,7 +50,10 @@
 - checkpoint 4
   - CPU/Bus/Cartridge/PPU/Joypad/APUが実装済みの状態です。
   - PPU: 固定画面+スクロール画面処理に対応しています(表示バグあり)。
-  - APU: 1〜5chの音が出ます。
+  - APU: 1〜5chの音が出ます(音声バグあり)。
+- checkpoint 5
+  - CPU/Bus/Cartridge/PPU/Joypad/APUが実装済みの状態です。
+  - PPU/APUとも不具合・バグ修正済み、スーパーマリオブラザーズが動作する状態です。
 
 
 ### 実行方法
@@ -78,6 +81,7 @@ $ cargo run -- -f rom/pacman.nes
 | checkpoint 3-1 | 第4章 エミュレータの実装 ― PPU編(1) (固定画面処理)              |
 | checkpoint 3-2 | 第5章 エミュレータの実装 ― PPU編(2) (スクロール画面処理)           |
 | checkpoint 4   | 第6章 エミュレータの実装 ― APU編 (音声処理)                   |
+| checkpoint 5   | 対応なし(※PPU/APUバグ修正、スーパーマリオブラザーズ動作確認版)          |
 
 
 
@@ -91,4 +95,5 @@ $ cargo run -- -f rom/pacman.nes
 | checkpoint 3-1 | [ch6.4](https://github.com/bugzmanov/nes_ebook/tree/master/code/ch6.4) |
 | checkpoint 3-2 | [ch8](https://github.com/bugzmanov/nes_ebook/tree/master/code/ch8) |
 | checkpoint 4   | 対応なし                                                             |
+| checkpoint 5   | 対応なし                                                             |
 
