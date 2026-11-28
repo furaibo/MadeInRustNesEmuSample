@@ -32,30 +32,36 @@ extern crate bitflags;
 struct Args {
     #[arg(short, long)]
     file: Option<PathBuf>,
+
+    #[arg(short, long)]
+    scale: Option<f32>,
 }
 
 fn main() {
+    // get file path
+    let args = Args::parse();
+    let path = args.file.unwrap_or_else(|| PathBuf::from("rom/test/color_test.nes"));
+
+    // get scale
+    let scale = args.scale.unwrap_or(2.0);
+
     // init sdl2
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let window = video_subsystem
-        .window("Game Window", (256.0 * 2.0) as u32, (240.0 * 2.0) as u32)
+        .window("Game Window", (256.0 * scale) as u32, (240.0 * scale) as u32)
         .position_centered()
         .build()
         .unwrap();
 
     let mut canvas = window.into_canvas().present_vsync().build().unwrap();
     let mut event_pump = sdl_context.event_pump().unwrap();
-    canvas.set_scale(2.0, 2.0).unwrap();
+    canvas.set_scale(scale, scale).unwrap();
 
     let creator = canvas.texture_creator();
     let mut texture = creator
         .create_texture_target(PixelFormatEnum::RGB24, 256, 240)
         .unwrap();
-
-    // get file path
-    let args = Args::parse();
-    let path = args.file.unwrap_or_else(|| PathBuf::from("rom/test/color_test.nes"));
 
     // load the game
     //let bytes: Vec<u8> = std::fs::read("rom/pacman.nes").unwrap();
